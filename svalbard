@@ -1,11 +1,14 @@
 #!/bin/bash
 
-tmp=/tmp
-cipher=aes-256-ofb
-op=$1
-bucket=$2
-
 source ~/.svalbard
+
+if [ -z "$cipher" ]; then
+    cipher=aes-128-cbc
+fi
+
+if [ -z "$TMPDIR" ]; then
+    TMPDIR=/tmp
+fi
 
 if [ -z "$salt" ]; then
     echo "Need to define variable 'salt' in ~/.svalbard"
@@ -16,6 +19,11 @@ if [ -z "$pass" ]; then
     echo "Need to define variable 'pass' in ~/.svalbard"
     exit
 fi
+
+tmp=/tmp
+op=$1
+bucket=$2
+
 
 export pass
 
@@ -61,7 +69,7 @@ function backup() {
             fi
             
             echo "Encrypting $file"
-            tcfile="$tmp/$cfile"
+            tcfile="$TMPDIR/$cfile"
             if encrypt -in "$file" -out "$tcfile"; then
                 size=`du -sh "$tcfile"`
                 
@@ -89,7 +97,7 @@ function restore() {
             line="$REPLY"
             cfile=`echo -n "$line" | awk '{ print $4 }'`
             dfile=`echo -n "$cfile"| decode | decrypt`
-            tcfile="$tmp/$cfile"
+            tcfile="$TMPDIR/$cfile"
             bdfile=`basename "$dfile"`
             ddfile=`dirname "$dfile"`
             echo "Downloading $cfile"
