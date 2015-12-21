@@ -1,5 +1,5 @@
 # svalbard
-Svalbard is an encrypted backup solution for AWS S3.  It is a simple bash script which can be used to backup to, restore from, or list the encrypted files in an S3 bucket.  Filenames are encrypted with relative path information, allowing multi-level backup/restore.  
+Svalbard is an encrypted backup solution for AWS S3.  It is a simple bash script which can be used to backup to, restore from, or list the encrypted files in an S3 bucket.  Filenames are encrypted with relative path information, allowing multi-level backup/restore.  Backup will check S3 for existing files before uploading, and only upload if the local copy is newer.
 
 ## Usage
 svalbard OP BUCKET [PATH...]
