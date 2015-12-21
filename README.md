@@ -8,7 +8,7 @@ OP can be one of backup|restore|ls
 BUCKET is an S3 bucket
 PATH is zero or more local filesystem paths
 
-The password and salt used to derive the encryption key must be set in ~/.svalbard using the variables 'salt' and 'pass'.  The script will fail if these are not set.
+The password and salt used to derive the encryption key must be set in ~/.svalbard using the variables 'salt' and 'pass'.  The script will fail if these are not set.  You may also set the 'cipher' and 'TMPDIR' variables, though if you don't defaults will be provided.
 
 ## Dependencies
 - openssl and aws command line executables
