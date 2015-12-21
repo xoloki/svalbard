@@ -1,0 +1,144 @@
+#!/bin/bash
+
+tmp=/tmp
+cipher=aes-256-ofb
+op=$1
+bucket=$2
+
+source ~/.svalbard
+
+if [ -z "$salt" ]; then
+    echo "Need to define variable 'salt' in ~/.svalbard"
+    exit
+fi
+
+if [ -z "$pass" ]; then
+    echo "Need to define variable 'pass' in ~/.svalbard"
+    exit
+fi
+
+export pass
+
+function make_prefix() {
+    if [ -n "$1" ]; then
+        echo -n "$1" | encrypt | encode | sed -e 's/.==$//g' | sed -e 's/..=$//g'
+    fi
+}
+
+function encode() {
+    base64 -w 0 | sed -e 's|/|_|g' | sed -e 's|+|-|g'
+}
+
+function decode() {
+    sed -e 's|_|/|g' | sed -e 's|-|+|g' | base64 -d
+}
+
+function encrypt() {
+    openssl "$cipher" -pass "env:pass" -S "$salt" "$@"
+}
+
+function decrypt() {
+    openssl "$cipher" -pass "env:pass" -d -S "$salt" "$@"
+}
+
+function backup() {
+    while (( "$#" )); do
+        path="$1"
+        find "$path" -type f | while read; do 
+            file="$REPLY"
+            
+            cfile=`echo -n "$file"| encrypt | encode`
+            out="$cfile.out"
+            
+            if aws s3 ls "$bucket/$cfile" > "$out"; then
+                echo "$file already present"
+                ts=`cat "$out" | awk '{ print $1,$2 }'`
+                ls=`ls -l --time-style full-iso "$file" | awk '{ print $6,$7 }'`
+                if expr "$ts >= $ls" >/dev/null; then
+                    rm -f "$out"
+                    continue
+                fi
+            fi
+            
+            echo "Encrypting $file"
+            tcfile="$tmp/$cfile"
+            if encrypt -in "$file" -out "$tcfile"; then
+                size=`du -sh "$tcfile"`
+                
+                echo "Uploading $size to bucket $bucket"
+                if aws s3 cp --storage-class STANDARD_IA "$tcfile" "s3://$bucket/$cfile"; then
+                    echo "Uploaded as $cfile"
+                else
+                    echo "Upload failed"
+                fi
+            else
+                echo "Encrypt failed"
+            fi
+            
+            rm -f "$tcfile" "$out"
+        done
+        shift
+    done
+}
+ 
+function restore() {
+    while (( "$#" )); do
+        prefix=`make_prefix "$1"`
+        
+        aws s3 ls "s3://$bucket/$prefix"| while read; do 
+            line="$REPLY"
+            cfile=`echo -n "$line" | awk '{ print $4 }'`
+            dfile=`echo -n "$cfile"| decode | decrypt`
+            tcfile="$tmp/$cfile"
+            bdfile=`basename "$dfile"`
+            ddfile=`dirname "$dfile"`
+            echo "Downloading $cfile"
+            aws s3 cp "s3://$bucket/$cfile" "$tcfile"
+            mkdir -p "$ddfile"
+            echo "Decrypting to $dfile"
+            if decrypt -in "$tcfile" -out "$dfile"; then
+                echo "Decrypt succeeded"
+            else
+                echo "Decrypt failed"
+            fi
+            rm -f "$tcfile"
+        done
+        shift
+    done
+}
+
+function list() {
+    while (( "$#" )); do
+        prefix=`make_prefix "$1"`
+
+        aws s3 ls "s3://$bucket/$prefix"| while read; do 
+            line="$REPLY"
+            cfile=`echo -n "$line" | awk '{ print $4 }'`
+            dfile=`echo -n "$cfile"| decode | decrypt`
+            echo -n "$dfile" | grep "$1"
+        done
+        shift
+    done
+}
+
+function usage() {
+    echo "Usage: $0 (backup|restore|ls) BUCKET PATH"
+}
+
+case "$op" in
+    backup)
+        shift 2
+        backup "$@"
+        ;;
+    restore)
+        shift 2
+        restore "$@"
+        ;;
+    ls)
+        shift 2
+        list "$@"
+        ;;
+    *)
+        usage "$@"
+        ;;
+esac
