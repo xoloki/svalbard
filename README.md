@@ -15,9 +15,12 @@ PATH is zero or more local filesystem paths
 The password and salt used to derive the encryption key must be set in ~/.svalbard using the variables 'salt' and 'pass'.  The script will fail if these are not set.  You may also set the 'cipher' and 'TMPDIR' variables, though if you don't defaults will be provided.
 
 ## Examples
-### backup everything under docs/
+##### backup everything under docs/ to my-backup-bucket
 svalbard backup my-backup-bucket docs/
 
-### restore bat.txt and everything under docs/baz
+##### restore bat.txt and everything under docs/baz from my-backup-bucket
 svalbard restore my-backup-bucket docs/bar/baz/bat.txt docs/baz/
+
+##### list all files under docs/bar and docs/baz in my-backup-bucket
+svalbard ls my-backup-bucket docs/bar docs/baz
 
